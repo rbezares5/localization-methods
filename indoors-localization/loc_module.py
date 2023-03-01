@@ -25,8 +25,10 @@ def get_xy(name):
     return x,y        
 
 def show_results(file):
+    """
+    Show test results from CSV file
+    """
     result=pd.read_csv(file, header=0).to_numpy()
-    #print(result)
 
     neighbour=result[:,2]
     print(neighbour)
@@ -66,13 +68,15 @@ class EnvironmentModel:
         self.map_coords=pd.read_csv(file, header=0).to_numpy()
 
     def create_hog_map(self, ppc=64):
+        """
+        Create a map of the environment using the HOG descriptor
+        """
         # Get all train images
         train_images=[]
         for file in natsorted(glob.glob(self.train_image_files)):
             train_images.append(cv.imread(file)) #could use PIL instead of cv?
 
         # Get hog descriptor of each image
-        #fd_train=[]
         self.map_descriptors=[]
         for i in range(len(train_images)):
             print(i)
@@ -81,7 +85,10 @@ class EnvironmentModel:
             
             self.map_descriptors.append(fd)
 
-    def export_map_desciptors(self, codename='DUMMY'):
+    def export_map_descriptors(self, codename='DUMMY'):
+        """
+        Save map descriptors into CSV file for future use
+        """
         pd.DataFrame(self.map_descriptors).to_csv("{name}_model.csv".format(name=codename), index=None)
 
     def import_map_descriptors(self, file):
@@ -91,6 +98,9 @@ class EnvironmentModel:
         self.map_descriptors=pd.read_csv(file, header=0).to_numpy()
 
     def import_test_images(self, test_dataset_path):
+        """
+        Get filenames of images located in test_dataset_path
+        """
         self.test_image_files=[]
         self.ground_truth=[]
         for file in natsorted(glob.glob(test_dataset_path)):
@@ -99,21 +109,25 @@ class EnvironmentModel:
             self.ground_truth.append([x,y])
 
     def online_hog_test(self, ppc=64):
+        """
+        Perform a simulation comparion test images against the map of the environment
+        Both should use the same descriptor (HOG)
+        """
         distances=[]
         times=[]
         neighbour=[]
 
-        #check all test images
+        # Check all test images
         for i in range(len(self.test_image_files)):
             print(i)
-            #get starting time each iteration
+            # Get starting time each iteration
             start_time=time.time()
 
-            #get image descriptor
+            # Get image descriptor
             fd, _ = hog(self.test_image_files[i], orientations=8, pixels_per_cell=(ppc, ppc),
                             cells_per_block=(1, 1), visualize=True, channel_axis=-1)
 
-            #compare against model
+            # Compare against model
             min_j=-1
             min_dist=100
             for j in range(len(self.map_descriptors)):
@@ -123,13 +137,13 @@ class EnvironmentModel:
                     min_dist=dist
                     min_j=j
 
-            #get chosen image (prediction) and its xy coords from csv
+            # Get chosen image (prediction) and its xy coords from csv
             [x_train,y_train]=self.map_coords[min_j][:]
 
-            #get end time after making prediction
+            # Get end time after making prediction
             end_time=time.time()
 
-            #compute error distance
+            # Compute error metric distance bteween images
             x_test=self.ground_truth[i][0]
             y_test=self.ground_truth[i][1]
             metric_distance=sqrt((x_train-x_test)**2+(y_train-y_test)**2)
@@ -137,7 +151,7 @@ class EnvironmentModel:
             distances.append(metric_distance)
             times.append(end_time-start_time)
 
-            #chosen neighbor histogram list -> poner esto en una función aparte??
+            #chosen neighbor histogram list -> this should be a separate function
             #first, make a list of all metric distances
             dist_list=[]
             for k in range(len(self.map_descriptors)):
@@ -160,16 +174,23 @@ class EnvironmentModel:
         
 
     def export_test_results(self, codename='DUMMY'):
-        #save result data in csv file
+        """
+        Save test results into CSV file for future use
+        """
         pd.DataFrame(self.test_results, columns=['distance', 'cpu time', 'neighbour'],).to_csv("batch_location_{name}.csv".format(name=codename), index=None)
 
     def import_test_results(self, file):
+        """
+        Import test results from premade CSV file
+        """
         self.test_results=pd.read_csv(file, header=0).to_numpy()    
 
     def show_neighbours_histogram(self):
-
+        """
+        Show histogram of chosen neighbour from test results
+        """
         d, t, neighbour = zip(*self.test_results)
-        #neighbour=self.test_results[:,2]
+        
         # Show plot
         plt.subplot(2,1,1)
         plt.hist(neighbour, bins=[0, 50, 100, 200, 300, 400])

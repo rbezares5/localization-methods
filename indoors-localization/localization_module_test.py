@@ -14,7 +14,7 @@ def main():
     my_map.import_map_coords('map_coordinates.csv')
 
     #my_map.create_hog_map()
-    #my_map.export_map_desciptors('HOG')
+    #my_map.export_map_descriptors('HOG')
     my_map.import_map_descriptors('HOG_model.csv')
 
     #my_map.online_hog_test()
