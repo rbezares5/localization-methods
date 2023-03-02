@@ -48,20 +48,28 @@ def get_chosen_neighbour_index(map_coords,x,y,j):
     #Finally, return the index corresponding to the prediction made earlier
     return index_list[j]
 
-def show_results(file):
+def plot_neighbours_histogram(neighbour_list):
+        # Show plot
+        plt.subplot(2,1,1)
+        plt.hist(neighbour_list, bins=[0, 50, 100, 200, 300, 400])
+
+        plt.subplot(2,1,2)
+        plt.hist(neighbour_list, bins=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        plt.show()
+
+def show_results_from_csv(file):
     """
     Show test results from CSV file
     """
     result=pd.read_csv(file, header=0).to_numpy()
-
     neighbour=result[:,2]
-    print(neighbour)
-    plt.subplot(2,1,1)
-    plt.hist(neighbour, bins=[0, 50, 100, 200, 300, 400])
+    d=result[:,0]
+    t=result[:,1]
 
-    plt.subplot(2,1,2)
-    plt.hist(neighbour, bins=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-    plt.show()
+    print('Mean distance error: {value}'.format(value=np.mean(d)))
+    print('Mean computing time: {value}'.format(value=np.mean(t)))
+    plot_neighbours_histogram(neighbour)
+
 
 class EnvironmentModel:
     def __init__(self, train_dataset_path):
@@ -113,7 +121,7 @@ class EnvironmentModel:
         """
         Save map descriptors into CSV file for future use
         """
-        pd.DataFrame(self.map_descriptors).to_csv("{name}_model.csv".format(name=codename), index=None)
+        pd.DataFrame(self.map_descriptors).to_csv('{name}_model.csv'.format(name=codename), index=None)
 
     def import_map_descriptors(self, file):
         """
@@ -186,7 +194,7 @@ class EnvironmentModel:
         """
         Save test results into CSV file for future use
         """
-        pd.DataFrame(self.test_results, columns=['distance', 'cpu time', 'neighbour'],).to_csv("batch_location_{name}.csv".format(name=codename), index=None)
+        pd.DataFrame(self.test_results, columns=['distance', 'cpu time', 'neighbour'],).to_csv('batch_location_{name}.csv'.format(name=codename), index=None)
 
     def import_test_results(self, file):
         """
@@ -194,16 +202,14 @@ class EnvironmentModel:
         """
         self.test_results=pd.read_csv(file, header=0).to_numpy()    
 
-    def show_neighbours_histogram(self):
+    def show_test_results(self):
         """
-        Show histogram of chosen neighbour from test results
+        Show test results:
+        -Histogram of chosen neighbour proximity index
+        -Mean value of distance error and compute time
         """
         d, t, neighbour = zip(*self.test_results)
         
-        # Show plot
-        plt.subplot(2,1,1)
-        plt.hist(neighbour, bins=[0, 50, 100, 200, 300, 400])
-
-        plt.subplot(2,1,2)
-        plt.hist(neighbour, bins=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-        plt.show()
+        print('Mean distance error: {value}'.format(value=np.mean(d)))
+        print('Mean computing time: {value}'.format(value=np.mean(t)))
+        plot_neighbours_histogram(neighbour)

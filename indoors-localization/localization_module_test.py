@@ -3,7 +3,7 @@ This script showcases how to solve the localization problem making use of
 the functions implemented in python classes
 """
 
-from loc_module import EnvironmentModel
+from loc_module import EnvironmentModel, show_results_from_csv
 
 def main():
     my_map=EnvironmentModel('Friburgo/Friburgo_Train/*.jpeg')
@@ -21,7 +21,8 @@ def main():
     #my_map.export_test_results('HOG')
     my_map.import_test_results('batch_location_HOG.csv')
 
-    my_map.show_neighbours_histogram()
+    my_map.show_test_results()
+    show_results_from_csv('batch_location_HOG.csv')
 
 
 
