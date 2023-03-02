@@ -36,9 +36,9 @@ def main():
 
 
     #get model data from csv 
-    mapCoords = pd.read_csv("model_coordinates.csv", header=0).to_numpy()
-    fdTrain=pd.read_csv("HOG_hierarchical_model.csv", header=0).to_numpy()
-    fdRepr=pd.read_csv("HOG_representative_descriptors.csv", header=0).to_numpy()
+    mapCoords = pd.read_csv("map_coordinates.csv", header=0).to_numpy()
+    fdTrain=pd.read_csv("NEW_hierarchical_model.csv", header=0).to_numpy()
+    fdRepr=pd.read_csv("NEW_representative_descriptors.csv", header=0).to_numpy()
     #print(fdRepr)
 
 
@@ -131,7 +131,7 @@ def main():
     plt.show()
 
     #save result data in csv file
-    pd.DataFrame(zip(distances,times,neighbour), columns=['distance', 'cpu time', 'neighbour'],).to_csv("hierarchical_location_hog.csv", index=None)
+    pd.DataFrame(zip(distances,times,neighbour), columns=['distance', 'cpu time', 'neighbour'],).to_csv("hierarchical_location_NEW.csv", index=None)
 
 
 if __name__ == "__main__":
