@@ -22,7 +22,31 @@ def get_xy(name):
         if word[0]=='y':
             y=word[1:]
             y=float(y)
-    return x,y        
+    return x,y
+
+
+def get_chosen_neighbour_index(map_coords,x,y,j):
+    """
+    For a given xy point, get the proximity index for the chosen neighbour
+    in index j of the map
+    """
+    # First, make a list of all metric distances
+    dist_list=[]
+    for k in range(len(map_coords)):
+        [x_map,y_map]=map_coords[k][:]
+        dist=sqrt((x_map-x)**2+(y_map-y)**2)
+        dist_list.append(dist)
+
+    # Then, determine the order of each distance, where 0 is the closest
+    index_list=np.zeros(len(dist_list))
+    for k in reversed(range(len(dist_list))):
+        max_value = max(dist_list)
+        index = dist_list.index(max_value)
+        index_list[index]=k
+        dist_list[index]=0 
+
+    #Finally, return the index corresponding to the prediction made earlier
+    return index_list[j]
 
 def show_results(file):
     """
@@ -110,7 +134,7 @@ class EnvironmentModel:
 
     def online_hog_test(self, ppc=64):
         """
-        Perform a simulation comparion test images against the map of the environment
+        Perform a simulation comparison test images against the map of the environment
         Both should use the same descriptor (HOG)
         """
         distances=[]
@@ -151,24 +175,9 @@ class EnvironmentModel:
             distances.append(metric_distance)
             times.append(end_time-start_time)
 
-            #chosen neighbor histogram list -> this should be a separate function
-            #first, make a list of all metric distances
-            dist_list=[]
-            for k in range(len(self.map_descriptors)):
-                [x_map,y_map]=self.map_coords[k][:]
-                dist=sqrt((x_map-x_test)**2+(y_map-y_test)**2)
-                dist_list.append(dist)
-
-            #then, determine the order of each distance, where 0 is the closest
-            index_list=np.zeros(len(dist_list))
-            for k in reversed(range(len(dist_list))):
-                max_value = max(dist_list)
-                index = dist_list.index(max_value)
-                index_list[index]=k
-                dist_list[index]=0
-
-            #get the index corresponding to the prediction made earlier
-            neighbour.append(index_list[min_j])
+            # Get a list of chosen neighbour proximity index, which can later be plotted in a histogram
+            index=get_chosen_neighbour_index(self.map_coords,x_test,y_test,min_j)
+            neighbour.append(index)
 
         self.test_results=zip(distances,times,neighbour)
         
