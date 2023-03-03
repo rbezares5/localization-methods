@@ -11,6 +11,7 @@ import numpy as np
 from math import sqrt
 import time
 from matplotlib import pyplot as plt
+from sklearn.cluster import SpectralClustering
 
 
 def get_xy(name):
@@ -189,7 +190,6 @@ class EnvironmentModel:
 
         self.test_results=zip(distances,times,neighbour)
         
-
     def export_test_results(self, codename='DUMMY'):
         """
         Save test results into CSV file for future use
@@ -213,3 +213,113 @@ class EnvironmentModel:
         print('Mean distance error: {value}'.format(value=np.mean(d)))
         print('Mean computing time: {value}'.format(value=np.mean(t)))
         plot_neighbours_histogram(neighbour)
+
+    def get_cluster_labels(self, data, n_clusters=15):
+        data=pd.read_csv('GIST_MATLAB_model.csv', header=0).to_numpy() #import external model, could also use internal stored model
+
+        hierarchical_cluster = SpectralClustering(n_clusters=n_clusters, assign_labels='discretize', affinity='nearest_neighbors')
+        self.labels = hierarchical_cluster.fit_predict(data)
+
+        self.hierachical_map_descriptors = np.c_[self.labels,self.map_descriptors]   
+
+    def export_cluster_labels(self, codename=''):
+        """
+        Save representative descriptors into CSV file for future use
+        """
+        pd.DataFrame(self.labels).to_csv('labels{name}.csv'.format(name=codename), index=None) 
+
+    def import_cluster_labels(self, file='labels.csv'):
+        """
+        Import clustering labels from premade CSV file
+        """
+        self.labels = pd.read_csv(file, header=0).to_numpy().flatten()
+        self.hierachical_map_descriptors = np.c_[self.labels,self.map_descriptors]
+
+    def plot_clusters(self):
+        x=self.map_coords[:,0]
+        y=self.map_coords[:,1]
+        labels=self.labels
+
+        plt.scatter(x, y, c=labels)
+        plt.show() 
+
+
+    def get_representative_descriptors(self):
+        """
+        Get the mean representative for each cluster
+        """
+        representativeVectors=[]
+        for label in set(self.labels):
+            cluster=self.hierachical_map_descriptors[self.hierachical_map_descriptors[:,0]==label]
+            repr=cluster.mean(0)
+            representativeVectors.append(repr)
+
+        self.representatives=representativeVectors
+
+    def export_representatives(self, codename='DUMMY'):
+        """
+        Save representative descriptors into CSV file for future use
+        """
+        pd.DataFrame(self.representatives).to_csv('{name}_representative_descriptors.csv'.format(name=codename), index=None)
+
+    def import_representatives(self, file):
+        """
+        Import representative descriptors from premade CSV file
+        """
+        self.representatives=pd.read_csv(file, header=0).to_numpy() 
+
+    def online_hierarchical_hog_test(self, ppc=64):
+        distances=[]
+        times=[]
+        neighbour=[]
+
+        # Check all test images
+        for i in range(len(self.test_image_files)):
+            print(i)
+            # Get starting time each iteration
+            start_time=time.time()
+
+            # Get image descriptor
+            fd, _ = hog(self.test_image_files[i], orientations=8, pixels_per_cell=(ppc, ppc),
+                            cells_per_block=(1, 1), visualize=True, channel_axis=-1)
+            
+            #compare against representatives only to get corresponding cluster (rough loaction)
+            cluster=-1
+            minDist=100
+            for j in range(len(self.representatives)):
+                dist = np.linalg.norm(fd-self.representatives[j][1:]) # Skip first value (label)
+
+                if dist<minDist:
+                    minDist=dist
+                    cluster=self.representatives[j][0]
+
+            # Compare against model, but only those from the same cluster
+            min_j=-1
+            min_dist=100
+            for j in range(len(self.hierachical_map_descriptors)):
+                if self.hierachical_map_descriptors[j][0]==cluster:
+                    dist = np.linalg.norm(fd-self.hierachical_map_descriptors[j][1:])
+
+                    if dist<min_dist:
+                        min_dist=dist
+                        min_j=j
+
+            # Get chosen image (prediction) and its xy coords from csv
+            [x_train,y_train]=self.map_coords[min_j][:]
+
+            # Get end time after making prediction
+            end_time=time.time()
+
+            # Compute error metric distance bteween images
+            x_test=self.ground_truth[i][0]
+            y_test=self.ground_truth[i][1]
+            metric_distance=sqrt((x_train-x_test)**2+(y_train-y_test)**2)
+
+            distances.append(metric_distance)
+            times.append(end_time-start_time)
+
+            # Get a list of chosen neighbour proximity index, which can later be plotted in a histogram
+            index=get_chosen_neighbour_index(self.map_coords,x_test,y_test,min_j)
+            neighbour.append(index)
+
+        self.test_results=zip(distances,times,neighbour)

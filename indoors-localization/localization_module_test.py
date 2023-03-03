@@ -19,10 +19,23 @@ def main():
 
     #my_map.online_hog_test()
     #my_map.export_test_results('HOG')
-    my_map.import_test_results('batch_location_HOG.csv')
+    #my_map.import_test_results('batch_location_HOG.csv')
 
+    #my_map.show_test_results()
+    #show_results_from_csv('batch_location_HOG.csv')
+    #show_results_from_csv('hierarchical_location_NEW.csv')
+
+    my_map.get_cluster_labels('GIST_MATLAB_model.csv',15)
+    my_map.export_cluster_labels(3)
+    #my_map.import_cluster_labels('labels3.csv')
+    my_map.plot_clusters()
+
+    my_map.get_representative_descriptors()
+    #my_map.export_representatives()
+
+    my_map.online_hierarchical_hog_test()
     my_map.show_test_results()
-    show_results_from_csv('batch_location_HOG.csv')
+    #my_map.export_test_results()
 
 
 
