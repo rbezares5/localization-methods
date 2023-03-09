@@ -25,10 +25,11 @@ def main():
     #show_results_from_csv('batch_location_HOG.csv')
     #show_results_from_csv('hierarchical_location_NEW.csv')
 
-    my_map.get_cluster_labels('GIST_MATLAB_model.csv',15)
-    my_map.export_cluster_labels(3)
+    my_map.get_cluster_labels('GIST_MATLAB_model.csv',10)
+    #my_map.export_cluster_labels(3)
     #my_map.import_cluster_labels('labels3.csv')
-    my_map.plot_clusters()
+    my_map.export_hierarchical_map_descriptors('hog10')
+    #my_map.plot_clusters()
 
     my_map.get_representative_descriptors()
     #my_map.export_representatives()

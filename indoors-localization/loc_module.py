@@ -188,7 +188,8 @@ class EnvironmentModel:
             index=get_chosen_neighbour_index(self.map_coords,x_test,y_test,min_j)
             neighbour.append(index)
 
-        self.test_results=zip(distances,times,neighbour)
+        #self.test_results=zip(distances,times,neighbour)
+        self.test_results=np.column_stack((distances,times,neighbour))
         
     def export_test_results(self, codename='DUMMY'):
         """
@@ -200,7 +201,7 @@ class EnvironmentModel:
         """
         Import test results from premade CSV file
         """
-        self.test_results=pd.read_csv(file, header=0).to_numpy()    
+        self.test_results=pd.read_csv(file, header=0).to_numpy()
 
     def show_test_results(self):
         """
@@ -220,20 +221,26 @@ class EnvironmentModel:
         hierarchical_cluster = SpectralClustering(n_clusters=n_clusters, assign_labels='discretize', affinity='nearest_neighbors')
         self.labels = hierarchical_cluster.fit_predict(data)
 
-        self.hierachical_map_descriptors = np.c_[self.labels,self.map_descriptors]   
+        self.hierarchical_map_descriptors = np.c_[self.labels,self.map_descriptors]   
 
     def export_cluster_labels(self, codename=''):
         """
         Save representative descriptors into CSV file for future use
         """
-        pd.DataFrame(self.labels).to_csv('labels{name}.csv'.format(name=codename), index=None) 
+        pd.DataFrame(self.labels).to_csv('labels{name}.csv'.format(name=codename), index=None)
+
+    def export_hierarchical_map_descriptors(self, codename='DUMMY'):
+        """
+        Save map descriptors into CSV file for future use
+        """
+        pd.DataFrame(self.hierarchical_map_descriptors).to_csv('{name}_hierarchical_model.csv'.format(name=codename), index=None)
 
     def import_cluster_labels(self, file='labels.csv'):
         """
         Import clustering labels from premade CSV file
         """
         self.labels = pd.read_csv(file, header=0).to_numpy().flatten()
-        self.hierachical_map_descriptors = np.c_[self.labels,self.map_descriptors]
+        self.hierarchical_map_descriptors = np.c_[self.labels,self.map_descriptors]
 
     def plot_clusters(self):
         x=self.map_coords[:,0]
@@ -250,7 +257,7 @@ class EnvironmentModel:
         """
         representativeVectors=[]
         for label in set(self.labels):
-            cluster=self.hierachical_map_descriptors[self.hierachical_map_descriptors[:,0]==label]
+            cluster=self.hierarchical_map_descriptors[self.hierarchical_map_descriptors[:,0]==label]
             repr=cluster.mean(0)
             representativeVectors.append(repr)
 
@@ -296,9 +303,9 @@ class EnvironmentModel:
             # Compare against model, but only those from the same cluster
             min_j=-1
             min_dist=100
-            for j in range(len(self.hierachical_map_descriptors)):
-                if self.hierachical_map_descriptors[j][0]==cluster:
-                    dist = np.linalg.norm(fd-self.hierachical_map_descriptors[j][1:])
+            for j in range(len(self.hierarchical_map_descriptors)):
+                if self.hierarchical_map_descriptors[j][0]==cluster:
+                    dist = np.linalg.norm(fd-self.hierarchical_map_descriptors[j][1:])
 
                     if dist<min_dist:
                         min_dist=dist
@@ -322,4 +329,5 @@ class EnvironmentModel:
             index=get_chosen_neighbour_index(self.map_coords,x_test,y_test,min_j)
             neighbour.append(index)
 
-        self.test_results=zip(distances,times,neighbour)
+        #self.test_results=zip(distances,times,neighbour)
+        self.test_results=np.column_stack((distances,times,neighbour))
