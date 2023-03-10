@@ -176,7 +176,7 @@ class EnvironmentModel:
             # Get end time after making prediction
             end_time=time.time()
 
-            # Compute error metric distance bteween images
+            # Compute metric distance error between images
             x_test=self.ground_truth[i][0]
             y_test=self.ground_truth[i][1]
             metric_distance=sqrt((x_train-x_test)**2+(y_train-y_test)**2)
@@ -279,6 +279,8 @@ class EnvironmentModel:
         distances=[]
         times=[]
         neighbour=[]
+        #closest_cluster=[]
+        self.contador=0
 
         # Check all test images
         for i in range(len(self.test_image_files)):
@@ -290,7 +292,7 @@ class EnvironmentModel:
             fd, _ = hog(self.test_image_files[i], orientations=8, pixels_per_cell=(ppc, ppc),
                             cells_per_block=(1, 1), visualize=True, channel_axis=-1)
             
-            #compare against representatives only to get corresponding cluster (rough loaction)
+            #compare against representatives only to get corresponding cluster (rough location)
             cluster=-1
             minDist=100
             for j in range(len(self.representatives)):
@@ -300,7 +302,7 @@ class EnvironmentModel:
                     minDist=dist
                     cluster=self.representatives[j][0]
 
-            # Compare against model, but only those from the same cluster
+            # Compare against model, but only those from the same cluster (fine location)
             min_j=-1
             min_dist=100
             for j in range(len(self.hierarchical_map_descriptors)):
@@ -317,7 +319,7 @@ class EnvironmentModel:
             # Get end time after making prediction
             end_time=time.time()
 
-            # Compute error metric distance bteween images
+            # Compute metric distance error between images
             x_test=self.ground_truth[i][0]
             y_test=self.ground_truth[i][1]
             metric_distance=sqrt((x_train-x_test)**2+(y_train-y_test)**2)
@@ -329,5 +331,42 @@ class EnvironmentModel:
             index=get_chosen_neighbour_index(self.map_coords,x_test,y_test,min_j)
             neighbour.append(index)
 
+            # Get a list of wether it actually chose the closest cluster or not
+            self.is_closest_cluster(fd,cluster)
+            #closest_cluster.append()
+
         #self.test_results=zip(distances,times,neighbour)
         self.test_results=np.column_stack((distances,times,neighbour))
+        print(self.contador)
+
+    def is_closest_cluster(self,fd,cluster):
+        closest_cluster_index=-1
+        min_cluster_dist=100
+
+        #print(cluster)
+        # Iterate through each cluster
+        for i in set(self.labels):
+            #print(i)            
+            # Compare against model, but only those from "i" cluster
+            #min_j=-1
+            min_dist_local=100
+            for j in range(len(self.hierarchical_map_descriptors)):
+                if self.hierarchical_map_descriptors[j][0]==i:
+                    dist = np.linalg.norm(fd-self.hierarchical_map_descriptors[j][1:])
+
+                    if dist<min_dist_local:
+                        min_dist_local=dist
+                        #min_j=j
+            
+            if min_dist_local<min_cluster_dist:
+                min_cluster_dist=min_dist_local
+                closest_cluster_index=i
+
+        #print(closest_cluster_index)
+        # Check if closest cluster is the chosen one
+        if closest_cluster_index==cluster:
+            print(True)
+            self.contador+=1
+
+
+
