@@ -8,10 +8,15 @@ import glob
 from natsort import natsorted
 import pandas as pd
 import numpy as np
+from scipy.spatial import distance
 from math import sqrt
 import time
 from matplotlib import pyplot as plt
 from sklearn.cluster import SpectralClustering
+from torchvision.io import read_image
+from torchvision.models import vgg16, VGG16_Weights
+from torchvision.models.feature_extraction import create_feature_extractor
+import random
 
 
 def get_xy(name):
@@ -70,6 +75,34 @@ def show_results_from_csv(file):
     print('Mean distance error: {value}'.format(value=np.mean(d)))
     print('Mean computing time: {value}'.format(value=np.mean(t)))
     plot_neighbours_histogram(neighbour)
+
+def load_cnn():
+
+    weights = VGG16_Weights.DEFAULT
+    model = vgg16(weights=weights)
+    model.eval()
+
+    model = create_feature_extractor(model, {'features.30': 'vgg16_descr'})
+
+    return model,weights
+        
+    
+def extract_features(file_name,model,weights):
+        preprocess = weights.transforms()
+
+
+        #batch = preprocess(self.test_image_files[i]).unsqueeze(0)
+
+        image=read_image(file_name)
+        batch = preprocess(image).unsqueeze(0)
+        
+        feat=model(batch)
+
+        out=feat['vgg16_descr']
+        fd=out.flatten().detach().numpy()
+
+        return fd
+
 
 
 class EnvironmentModel:
@@ -136,10 +169,13 @@ class EnvironmentModel:
         """
         self.test_image_files=[]
         self.ground_truth=[]
+        self.file_names=[]
         for file in natsorted(glob.glob(test_dataset_path)):
             self.test_image_files.append(cv.imread(file))
+            #self.test_image_files.append(read_image(file))
             x,y=get_xy(file)
             self.ground_truth.append([x,y])
+            self.file_names.append(file)
 
     def online_hog_test(self, ppc=64):
         """
@@ -279,8 +315,17 @@ class EnvironmentModel:
         distances=[]
         times=[]
         neighbour=[]
-        #closest_cluster=[]
+
+        #debug info
+        index_list=[]
+        gross_dist=[]
+        fine_dist=[]
+        cluster_list=[]
+        closest_cluster=[]
         self.contador=0
+        self.closest=[]
+
+        m,w=load_cnn()
 
         # Check all test images
         for i in range(len(self.test_image_files)):
@@ -289,8 +334,141 @@ class EnvironmentModel:
             start_time=time.time()
 
             # Get image descriptor
-            fd, _ = hog(self.test_image_files[i], orientations=8, pixels_per_cell=(ppc, ppc),
-                            cells_per_block=(1, 1), visualize=True, channel_axis=-1)
+            # fd, _ = hog(self.test_image_files[i], orientations=8, pixels_per_cell=(ppc, ppc),
+            #                 cells_per_block=(1, 1), visualize=True, channel_axis=-1)
+            
+            #vgg16 descriptor!
+            fd=extract_features(self.file_names[i],m,w)
+            
+            #compare against representatives only to get corresponding cluster (rough location)
+            cluster=-1
+            minDist=100
+            for j in range(len(self.representatives)):
+                #dist = np.linalg.norm(fd-self.representatives[j][1:]) # Skip first value (label)
+                dist = distance.correlation(fd,self.representatives[j][1:])
+
+                if dist<minDist:
+                    minDist=dist
+                    cluster=self.representatives[j][0]
+
+            cluster_list.append(cluster) #DEBUG
+            gross_dist.append(minDist) #DEBUG
+
+            # Compare against model, but only those from the same cluster (fine location)
+            min_j=-1
+            min_dist=100
+            for j in range(len(self.hierarchical_map_descriptors)):
+                if self.hierarchical_map_descriptors[j][0]==cluster:
+                    dist = np.linalg.norm(fd-self.hierarchical_map_descriptors[j][1:])
+
+                    if dist<min_dist:
+                        min_dist=dist
+                        min_j=j
+
+            fine_dist.append(min_dist) #DEBUG
+
+            # Get chosen image (prediction) and its xy coords from csv
+            [x_train,y_train]=self.map_coords[min_j][:]
+
+            # Get end time after making prediction
+            end_time=time.time()
+
+            # Compute metric distance error between images
+            x_test=self.ground_truth[i][0]
+            y_test=self.ground_truth[i][1]
+            metric_distance=sqrt((x_train-x_test)**2+(y_train-y_test)**2)
+
+            distances.append(metric_distance)
+            times.append(end_time-start_time)
+
+            # Get a list of chosen neighbour proximity index, which can later be plotted in a histogram
+            index=get_chosen_neighbour_index(self.map_coords,x_test,y_test,min_j)
+            neighbour.append(index)
+
+            # Get a list of wether it actually chose the closest cluster or not
+            self.is_closest_cluster(fd,cluster)
+            
+            index_list.append(i) #DEBUG
+
+        #self.test_results=zip(distances,times,neighbour)
+        self.test_results=np.column_stack((distances,times,neighbour))
+        print(self.contador)
+        closest_cluster=self.closest
+        self.debug_results=np.column_stack((index_list,gross_dist,fine_dist,cluster_list,closest_cluster,distances,neighbour))
+        
+
+    def export_debug_results(self, codename='DEBUG'):
+        """
+        Save test results into CSV file for future use
+        """
+        pd.DataFrame(self.debug_results, columns=['index', 'repr. distance', 'fine distance', 'cluster', 'closest cluster', 'location error (m)', 'neighbour'],).to_csv('Localization_Results_{name}.csv'.format(name=codename), index=None)
+
+
+    def is_closest_cluster(self,fd,cluster):
+        closest_cluster_index=-1
+        min_cluster_dist=100
+
+        #print(cluster)
+        # Iterate through each cluster
+        for i in set(self.labels):
+            #print(i)            
+            # Compare against model, but only those from "i" cluster
+            #min_j=-1
+            min_dist_local=100
+            for j in range(len(self.hierarchical_map_descriptors)):
+                if self.hierarchical_map_descriptors[j][0]==i:
+                    dist = np.linalg.norm(fd-self.hierarchical_map_descriptors[j][1:])
+
+                    if dist<min_dist_local:
+                        min_dist_local=dist
+                        #min_j=j
+            
+            if min_dist_local<min_cluster_dist:
+                min_cluster_dist=min_dist_local
+                closest_cluster_index=i
+
+        #print(closest_cluster_index)
+        # Check if closest cluster is the chosen one
+        if closest_cluster_index==cluster:
+            print(True)
+            self.contador+=1
+            self.closest.append(True)
+        else:
+            self.closest.append(False)
+
+    def online_hierarchical_vgg16_test(self):
+        distances=[]
+        times=[]
+        neighbour=[]
+        #closest_cluster=[]
+        self.contador=0
+
+        #load CNN model
+        # weights = VGG16_Weights.DEFAULT
+        # model = vgg16(weights=weights)
+        # model.eval()
+        # # extract convolutional layers 4+5 (named internally as features.8+10)
+        # model = create_feature_extractor(model, {'features.30': 'vgg16_descr'})
+        # preprocess = weights.transforms()
+
+        # Check all test images
+        for i in range(len(self.test_image_files)):
+            print(i)
+            # Get starting time each iteration
+            start_time=time.time()
+
+            # Get image descriptor
+            # fd, _ = hog(self.test_image_files[i], orientations=8, pixels_per_cell=(ppc, ppc),
+            #                 cells_per_block=(1, 1), visualize=True, channel_axis=-1)
+            
+            # Get image descriptor from CNN           
+            # batch = preprocess(self.test_image_files[i]).unsqueeze(0)
+            # feat=model(batch)
+
+            # out=feat['vgg16_descr']
+            # fd=out.flatten().detach().numpy()
+
+            fd=extract_features(self.file_names[i])
             
             #compare against representatives only to get corresponding cluster (rough location)
             cluster=-1
@@ -338,35 +516,6 @@ class EnvironmentModel:
         #self.test_results=zip(distances,times,neighbour)
         self.test_results=np.column_stack((distances,times,neighbour))
         print(self.contador)
-
-    def is_closest_cluster(self,fd,cluster):
-        closest_cluster_index=-1
-        min_cluster_dist=100
-
-        #print(cluster)
-        # Iterate through each cluster
-        for i in set(self.labels):
-            #print(i)            
-            # Compare against model, but only those from "i" cluster
-            #min_j=-1
-            min_dist_local=100
-            for j in range(len(self.hierarchical_map_descriptors)):
-                if self.hierarchical_map_descriptors[j][0]==i:
-                    dist = np.linalg.norm(fd-self.hierarchical_map_descriptors[j][1:])
-
-                    if dist<min_dist_local:
-                        min_dist_local=dist
-                        #min_j=j
-            
-            if min_dist_local<min_cluster_dist:
-                min_cluster_dist=min_dist_local
-                closest_cluster_index=i
-
-        #print(closest_cluster_index)
-        # Check if closest cluster is the chosen one
-        if closest_cluster_index==cluster:
-            print(True)
-            self.contador+=1
 
 
 

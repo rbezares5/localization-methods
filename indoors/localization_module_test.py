@@ -15,7 +15,8 @@ def main():
 
     #my_map.create_hog_map()
     #my_map.export_map_descriptors('HOG')
-    my_map.import_map_descriptors('HOG_model.csv')
+    #my_map.import_map_descriptors('HOG_model.csv')
+    my_map.import_map_descriptors('vgg16_model.csv')
 
     #my_map.online_hog_test()
     #my_map.export_test_results('HOG')
@@ -25,18 +26,18 @@ def main():
     #show_results_from_csv('batch_location_HOG.csv')
     #show_results_from_csv('hierarchical_location_NEW.csv')
 
-    my_map.get_cluster_labels('GIST_MATLAB_model.csv',10)
-    #my_map.export_cluster_labels(3)
-    #my_map.import_cluster_labels('labels3.csv')
-    my_map.export_hierarchical_map_descriptors('hog10')
-    #my_map.plot_clusters()
+    #my_map.get_cluster_labels('GIST_MATLAB_model.csv',50)
+    #my_map.export_cluster_labels('_gist50')
+    my_map.import_cluster_labels('labels_gist50.csv')
+    #my_map.export_hierarchical_map_descriptors('hog10')
+    my_map.plot_clusters()
 
     my_map.get_representative_descriptors()
-    #my_map.export_representatives()
+    #my_map.export_representatives('')
 
-    my_map.online_hierarchical_hog_test()
+    my_map.online_hierarchical_hog_test(64) #this was done with vgg16 descriptor, check inside method
     my_map.show_test_results()
-    #my_map.export_test_results()
+    my_map.export_debug_results('VGG16')
 
 
 
