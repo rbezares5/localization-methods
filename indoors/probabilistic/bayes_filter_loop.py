@@ -70,9 +70,11 @@ def main():
     bel=np.full(len(map_coords),fill_value=1/len(map_coords))
     bel=movement_model(map=map_coords,starting_pos=test_coords[0,:],u=[0,0])
 
+    # Initilize results array and save initial belief
+    result=np.zeros((len(test_coords),len(map_coords)))
+    result[0,:]=bel[:]
 
     # Make it loop
-    result=np.zeros((len(test_coords)-1,len(map_coords)))
     for i in range(len(test_coords)-1):
         print('Iteration test image number {number}'.format(number=i))
 
@@ -99,7 +101,7 @@ def main():
 
 
         # Save result in array and later export to csv
-        result[i,:]=bel[:]
+        result[i+1,:]=bel[:]
 
     pd.DataFrame(result).to_csv('bayes_filter_result.csv', index=None)
 
