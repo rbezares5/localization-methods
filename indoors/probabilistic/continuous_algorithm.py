@@ -53,9 +53,9 @@ def get_prediction(map_coords, test_coords, bayes_results, n):
 
 
 def main():
-    map_coords=pd.read_csv('BIS_map_coordinates.csv', header=0).to_numpy()
-    test_coords=pd.read_csv('test_coordinates.csv', header=0).to_numpy()
-    bayes_results=pd.read_csv('BIS_bayes_filter_result.csv', header=0).to_numpy()
+    map_coords=pd.read_csv('Qevent_map_coordinates.csv', header=0).to_numpy()
+    test_coords=pd.read_csv('Qevent_test_coordinates.csv', header=0).to_numpy()
+    bayes_results=pd.read_csv('Qevent_bayes_filter_result2.csv', header=0).to_numpy()
 
     p1,e1=get_prediction(map_coords,test_coords,bayes_results,n=1)
     p2,e2=get_prediction(map_coords,test_coords,bayes_results,n=2)
@@ -67,7 +67,7 @@ def main():
     print('Mean error (n=2): {e}'.format(e=mean(e2)))
     print('Mean error (n=3): {e}'.format(e=mean(e3)))
 
-    pd.DataFrame(error, columns=['n=1', 'n=2', 'n=3']).to_csv('BIS_continuous_algorithm_error.csv', index=None)
+    pd.DataFrame(error, columns=['n=1', 'n=2', 'n=3']).to_csv('Qevent_continuous_algorithm_error.csv', index=None)
     
 
 

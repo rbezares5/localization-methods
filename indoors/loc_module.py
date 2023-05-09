@@ -17,6 +17,9 @@ from torchvision.io import read_image
 from torchvision.models import vgg16, VGG16_Weights
 from torchvision.models.feature_extraction import create_feature_extractor
 import random
+import torch
+from PIL import Image
+from torchvision import transforms
 
 
 def get_xy(name):
@@ -85,6 +88,17 @@ def load_cnn():
     model = create_feature_extractor(model, {'features.30': 'vgg16_descr'})
 
     return model,weights
+
+def load_lenet():
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model=torch.load('dummy.pth').to(device)
+    model.eval()
+
+    model = create_feature_extractor(model, {'relu3': 'lenet_descr'})
+
+    return model
+
         
     
 def extract_features(file_name,model,weights):
@@ -195,6 +209,72 @@ class EnvironmentModel:
             # Get image descriptor
             fd, _ = hog(self.test_image_files[i], orientations=8, pixels_per_cell=(ppc, ppc),
                             cells_per_block=(1, 1), visualize=True, channel_axis=-1)
+
+            # Compare against model
+            min_j=-1
+            min_dist=100
+            for j in range(len(self.map_descriptors)):
+                dist = np.linalg.norm(fd-self.map_descriptors[j])
+
+                if dist<min_dist:
+                    min_dist=dist
+                    min_j=j
+
+            # Get chosen image (prediction) and its xy coords from csv
+            [x_train,y_train]=self.map_coords[min_j][:]
+
+            # Get end time after making prediction
+            end_time=time.time()
+
+            # Compute metric distance error between images
+            x_test=self.ground_truth[i][0]
+            y_test=self.ground_truth[i][1]
+            metric_distance=sqrt((x_train-x_test)**2+(y_train-y_test)**2)
+
+            distances.append(metric_distance)
+            times.append(end_time-start_time)
+
+            # Get a list of chosen neighbour proximity index, which can later be plotted in a histogram
+            index=get_chosen_neighbour_index(self.map_coords,x_test,y_test,min_j)
+            neighbour.append(index)
+
+        #self.test_results=zip(distances,times,neighbour)
+        self.test_results=np.column_stack((distances,times,neighbour))
+
+    def online_lenet_test(self, ppc=64):
+        """
+        Perform a simulation comparison test images against the map of the environment
+        Both should use the same descriptor (LeNet)
+        """
+        distances=[]
+        times=[]
+        neighbour=[]
+
+        model=load_lenet()
+        test_df = pd.read_csv('friburgo_test_annotations_file.csv')
+
+        # Check all test images
+        for i in range(len(self.test_image_files)-1):
+            print(i)
+            # Get starting time each iteration
+            start_time=time.time()
+
+            # Get image descriptor (LENET)
+            # fd, _ = hog(self.test_image_files[i], orientations=8, pixels_per_cell=(ppc, ppc),
+            #                 cells_per_block=(1, 1), visualize=True, channel_axis=-1)
+            img_path = test_df.iloc[i, 0]
+            image = Image.open(img_path).convert('L') #convert to grayscale
+            
+            transform = transforms.Compose([
+            #transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            #transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            ])
+            #img = img.expand(3,*img.shape[1:])  #turn grayscale image into 3-channel for alexnet input
+            input_tensor = transform(image).unsqueeze(0)
+            feat=model(input_tensor)
+            out=feat['lenet_descr']
+            fd=out.flatten().detach().numpy()
 
             # Compare against model
             min_j=-1

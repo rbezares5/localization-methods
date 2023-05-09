@@ -29,7 +29,7 @@ def get_file_names(dataset_path, codename):
     pd.DataFrame(file_names).to_csv('{name}_dataset_filenames.csv'.format(name=codename), index=None)
 
 def main():
-    get_file_names('Friburgo/Friburgo_Train/*.jpeg',codename='friburgo_train')
+    get_file_names('Friburgo/Friburgo_Test_ext/*.jpeg',codename='friburgo_test')
 
 
 if __name__ == "__main__":

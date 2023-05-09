@@ -9,11 +9,11 @@ from natsort import natsorted
 import pandas as pd
 
 def get_xy(name):
-    lista=name.split('_',4)
+    lista=name.split('_',-1)
     for word in lista:
-        if word[0]=='x':
+        if word[0]=='X':
             x=word[1:]
-        if word[0]=='y':
+        if word[0]=='Y':
             y=word[1:]
     return x,y        
 
@@ -22,7 +22,7 @@ def main():
     #get all train images and coordinates 
     imagesTrain=[]
     imagesTrainCoord=[]
-    for file in natsorted(glob.glob('Friburgo/Friburgo_Train/*.jpeg')):
+    for file in natsorted(glob.glob('Quorumv/Panoramic_Training/Events_Room/*.bmp')):
         imagesTrain.append(cv.imread(file))
         x,y=get_xy(file)
         imagesTrainCoord.append([x,y])
@@ -38,8 +38,8 @@ def main():
         fdTrain.append(fd)
 
     #save data in csv files
-    pd.DataFrame(fdTrain).to_csv("HOG_model.csv", index=None)
-    pd.DataFrame(imagesTrainCoord, columns=['x', 'y'],).to_csv("model_coordinates.csv", index=None)
+    pd.DataFrame(fdTrain).to_csv("Qevent_HOG_model.csv", index=None)
+    pd.DataFrame(imagesTrainCoord, columns=['x', 'y'],).to_csv("Qevent_map_coordinates.csv", index=None)
     
 
 if __name__ == "__main__":

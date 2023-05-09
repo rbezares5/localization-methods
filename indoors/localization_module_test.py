@@ -16,13 +16,17 @@ def main():
     #my_map.create_hog_map()
     #my_map.export_map_descriptors('HOG')
     #my_map.import_map_descriptors('HOG_model.csv')
-    my_map.import_map_descriptors('vgg16_model.csv')
+    my_map.import_map_descriptors('lenet_model.csv')
 
     #my_map.online_hog_test()
     #my_map.export_test_results('HOG')
     #my_map.import_test_results('batch_location_HOG.csv')
 
-    #my_map.show_test_results()
+    my_map.online_lenet_test()
+    my_map.export_test_results('lenet')
+    my_map.import_test_results('batch_location_lenet.csv')
+
+    my_map.show_test_results()
     #show_results_from_csv('batch_location_HOG.csv')
     #show_results_from_csv('hierarchical_location_NEW.csv')
 
@@ -35,9 +39,9 @@ def main():
     my_map.get_representative_descriptors()
     #my_map.export_representatives('')
 
-    my_map.online_hierarchical_hog_test(64) #this was done with vgg16 descriptor, check inside method
-    my_map.show_test_results()
-    my_map.export_debug_results('VGG16')
+    #my_map.online_hierarchical_hog_test(64) #this was done with vgg16 descriptor, check inside method
+    #my_map.show_test_results()
+    #my_map.export_debug_results('VGG16')
 
 
 

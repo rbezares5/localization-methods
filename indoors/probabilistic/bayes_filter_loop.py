@@ -11,7 +11,7 @@ def get_mov(end_pos,init_pos,noise_deviation=0.1):
 
     return x_mov,y_mov
 
-def movement_model(map,starting_pos,u,threshold=1):
+def movement_model(map,starting_pos,u,threshold=20000):
     """
     This function gives the probabilty of landing at each spot from a given spot
     """
@@ -34,6 +34,7 @@ def movement_model(map,starting_pos,u,threshold=1):
 
     #normalize probability vector
     prob=prob/math.fsum(prob)
+    prob=np.nan_to_num(prob, nan=0)
 
     return prob
 
@@ -62,9 +63,9 @@ def get_new_bel_correction(bel,prob):
 def main():
 
     # Initialize external data
-    map_coords=pd.read_csv('BIS_map_coordinates.csv', header=0).to_numpy()
-    test_coords=pd.read_csv('test_coordinates.csv', header=0).to_numpy()
-    hog_offline_results=pd.read_csv('BIS_hog_descriptor_distances.csv', header=0).to_numpy()
+    map_coords=pd.read_csv('Qevent_map_coordinates.csv', header=0).to_numpy()
+    test_coords=pd.read_csv('Qevent_test_coordinates.csv', header=0).to_numpy()
+    hog_offline_results=pd.read_csv('Qevent_hog_descriptor_distances.csv', header=0).to_numpy()
 
     # Get initial belief
     bel=np.full(len(map_coords),fill_value=1/len(map_coords))
@@ -103,7 +104,7 @@ def main():
         # Save result in array and later export to csv
         result[i+1,:]=bel[:]
 
-    pd.DataFrame(result).to_csv('BIS_bayes_filter_result.csv', index=None)
+    pd.DataFrame(result).to_csv('Qevent_bayes_filter_result.csv', index=None)
 
 
 if __name__ == "__main__":

@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 
 def main():
     #map_coords=pd.read_csv('map_coordinates.csv', header=0).to_numpy()
-    test_coords=pd.read_csv('test_coordinates.csv', header=0).to_numpy()
+    test_coords=pd.read_csv('Qevent_test_coordinates.csv', header=0).to_numpy()
     #bayes_results=pd.read_csv('bayes_filter_result.csv', header=0).to_numpy()
 
-    error=pd.read_csv('BIS_continuous_algorithm_error.csv', header=0).to_numpy()
+    error=pd.read_csv('Qevent_continuous_algorithm_error.csv', header=0).to_numpy()
 
     print(error)
     print(error[0,:])

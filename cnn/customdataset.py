@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 from torchvision.io import read_image
+from PIL import Image
 
 class CustomImageDataset(Dataset):
     def __init__(self, annotations_file, img_dir, transform=None, target_transform=None):
@@ -40,6 +41,26 @@ test_data = CustomImageDataset(
     img_dir='',
     #transform=ToTensor()
 )
+
+class ImageDataset(Dataset):
+    def __init__(self, data_dir, csv_file, transform=None):
+        self.data_dir = data_dir
+        self.transform = transform
+        self.data_df = pd.read_csv(csv_file)
+        
+    def __len__(self):
+        return len(self.data_df)
+    
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.data_dir, self.data_df.iloc[idx, 0])
+        image = Image.open(img_path).convert('RGB')
+        
+        label = self.data_df.iloc[idx, 1]
+        
+        if self.transform:
+            image = self.transform(image)
+            
+        return image, label
 
 
 train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)

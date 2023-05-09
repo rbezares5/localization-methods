@@ -1,11 +1,9 @@
 """
-This script takes the model (map) of the environment created using the HOG descriptor
+This script takes the hierarchical model
 and uses the test dataset to solve the localization problem
 """
 
 import numpy as np
-import cv2 as cv
-from skimage.feature import hog
 import glob
 from natsort import natsorted
 import pandas as pd 
@@ -13,6 +11,10 @@ from statistics import mean
 from math import sqrt
 import time
 from matplotlib import pyplot as plt
+from torchvision.io import read_image
+from torchvision.models import alexnet, AlexNet_Weights
+from torchvision.models import vgg16, VGG16_Weights
+from torchvision.models.feature_extraction import create_feature_extractor
 
 def get_xy(name):
     lista=name.split('_',-1)
@@ -29,49 +31,71 @@ def main():
     #get all test images
     imagesTest=[]
     imagesTestCoord=[]
-    for file in natsorted(glob.glob('Quorumv/Panoramic_Test/Test_Events_Room/*.bmp')):
-        imagesTest.append(cv.imread(file))
-        #x,y=get_xy(file)
-        #imagesTestCoord.append([x,y])
+    for file in natsorted(glob.glob('Friburgo/Friburgo_Test_ext/*.jpeg')):
+        img = read_image(file)
+        #img = img.expand(3,*img.shape[1:])  #turn grayscale image into 3-channel for alexnet input
+        imagesTest.append(img)
+        x,y=get_xy(file)
+        imagesTestCoord.append([x,y])
 
-    imagesTest=imagesTest[::17]
+    #get model data from csv 
+    mapCoords = pd.read_csv("map_coordinates.csv", header=0).to_numpy()
+    fdTrain=pd.read_csv("vgg16_hierarchical_model.csv", header=0).to_numpy()
+    fdRepr=pd.read_csv("vgg16_representative_descriptors.csv", header=0).to_numpy()
 
-
-    #get model data from csv files
-    fdTrain=pd.read_csv("Qevent_HOG_model.csv", header=0).to_numpy()
-    mapCoords = pd.read_csv("Qevent_map_coordinates.csv", header=0).to_numpy()
-    imagesTestCoord = pd.read_csv("Qevent_test_coordinates.csv", header=0).to_numpy()
-
+    #load CNN model
+    weights = VGG16_Weights.DEFAULT
+    model = vgg16(weights=weights)
+    model.eval()
+    # extract convolutional layers 4+5 (named internally as features.8+10)
+    model = create_feature_extractor(model, {'features.30': 'vgg16_descr'})
+    preprocess = weights.transforms()
 
     distances=[]
     times=[]
     neighbour=[]
 
     #check all test images
-    #for i in range(50): #test only 50 images
+    #for i in range(50):
     for i in range(len(imagesTest)):
         print(i)
         #get starting time each iteration
         startTime=time.time()
 
-        #get image descriptor
-        fd, hog_image = hog(imagesTest[i], orientations=8, pixels_per_cell=(64, 64),
-                        cells_per_block=(1, 1), visualize=True, channel_axis=-1)
+        #get descriptor from CNN           
+        batch = preprocess(imagesTest[i]).unsqueeze(0)
+        feat=model(batch)
 
-        #compare against model
-        minj=-1
+        out=feat['vgg16_descr']
+        fd=out.flatten().detach().numpy()
+
+
+
+        #compare against representatives only to get corresponding cluster (rough loaction)
+        cluster=-1
         minDist=100
-        for j in range(len(fdTrain)):
-            dist = np.linalg.norm(fd-fdTrain[j])
+        for j in range(len(fdRepr)):
+            dist = np.linalg.norm(fd-fdRepr[j][1:])
 
             if dist<minDist:
                 minDist=dist
-                minj=j
+                cluster=fdRepr[j][0]
+
+        #print(cluster)
+
+        #compare against model, but only those from the same cluster
+        minj=-1
+        minDist=100
+        for j in range(len(fdTrain)):
+            if fdTrain[j][0]==cluster:
+                dist = np.linalg.norm(fd-fdTrain[j][1:])
+
+                if dist<minDist:
+                    minDist=dist
+                    minj=j
 
         #get chosen image (prediction) and its xy coords from csv
         [xTrain,yTrain]=mapCoords[minj,:]
-
-        print('predicted position [{x} {y}]'.format(x=xTrain,y=yTrain))
 
         #get end time after making prediction
         endTime=time.time()
@@ -80,9 +104,6 @@ def main():
         xTest=imagesTestCoord[i][0]
         yTest=imagesTestCoord[i][1]
         metricDist=sqrt((xTrain-xTest)**2+(yTrain-yTest)**2)
-
-        print('ground truth [{x} {y}]'.format(x=xTest,y=yTest))
-        print('metric distance error = {d}'.format(d=metricDist))
 
         distances.append(metricDist)
         times.append(endTime-startTime)
@@ -120,11 +141,12 @@ def main():
     plt.hist(neighbour, bins=[0, 50, 100, 200, 300, 400])
 
     plt.subplot(2,1,2)
-    plt.hist(neighbour, bins=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,20,30,40,50])
+    plt.hist(neighbour, bins=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     plt.show()
 
     #save result data in csv file
-    pd.DataFrame(zip(distances,times,neighbour), columns=['distance', 'cpu time', 'neighbour'],).to_csv("Qevent_batch_location_hog.csv", index=None)
+    pd.DataFrame(zip(distances,times,neighbour), columns=['distance', 'cpu time', 'neighbour'],).to_csv("hierarchical_location_vgg16.csv", index=None)
+
 
 if __name__ == "__main__":
     main()

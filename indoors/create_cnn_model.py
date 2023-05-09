@@ -11,6 +11,12 @@ from torchvision.models import vgg16, VGG16_Weights
 from torchvision.models.feature_extraction import get_graph_node_names
 from torchvision.models.feature_extraction import create_feature_extractor
 
+import torch
+from PIL import Image
+from torchvision import transforms
+
+
+
 def get_xy(name):
     lista=name.split('_',4)
     for word in lista:
@@ -31,20 +37,26 @@ def main():
     # model = create_feature_extractor(model, {'features.8': 'conv4', 'features.10': 'conv5'})    
     # preprocess = weights.transforms()
 
-    weights = VGG16_Weights.DEFAULT
-    model = vgg16(weights=weights)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model=torch.load('dummy.pth').to(device)
     model.eval()
-    # Extract descriptor from last layer (named internally as features.30)
-    model = create_feature_extractor(model, {'features.30': 'vgg16_descr'})
-    preprocess = weights.transforms()
+
+    model = create_feature_extractor(model, {'relu3': 'lenet_descr'})
 
     #get all train images and coordinates 
     imagesTrain=[]
     imagesTrainCoord=[]
     for file in natsorted(glob.glob('Friburgo/Friburgo_Train/*.jpeg')):
-        img = read_image(file)
-        img = img.expand(3,*img.shape[1:])  #turn grayscale image into 3-channel for alexnet input
-        imagesTrain.append(img)
+        #img = read_image(file)
+        image = Image.open(file).convert('L') #convert to grayscale
+        transform = transforms.Compose([
+            #transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            #transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        ])
+        #img = img.expand(3,*img.shape[1:])  #turn grayscale image into 3-channel for alexnet input
+        input_tensor = transform(image).unsqueeze(0)
+        imagesTrain.append(input_tensor)
         x,y=get_xy(file)
         imagesTrainCoord.append([x,y])
 
@@ -57,8 +69,9 @@ def main():
         
 
         #get descriptors from CNN   
-        batch = preprocess(imagesTrain[i]).unsqueeze(0)
-        feat=model(batch)
+        #img_path = 'Friburgo/Friburgo_Train/t1152902729.509119_x0.343810_y-0.001590_a-0.006566.jpeg'
+
+        feat=model(imagesTrain[i])
         # c4=feat['conv4']
         # fd1=c4.flatten().detach().numpy()
         # fdTrain1.append(fd1)
@@ -67,14 +80,14 @@ def main():
         # fd2=c5.flatten().detach().numpy()
         # fdTrain2.append(fd2)
 
-        out=feat['vgg16_descr']
+        out=feat['lenet_descr']
         fd1=out.flatten().detach().numpy()
         fdTrain1.append(fd1)
 
     #save data in csv files
     # pd.DataFrame(fdTrain1).to_csv("Alexnet_c4_model.csv", index=None)
     # pd.DataFrame(fdTrain2).to_csv("Alexnet_c5_model.csv", index=None)
-    pd.DataFrame(fdTrain1).to_csv("vgg16_model.csv", index=None)
+    pd.DataFrame(fdTrain1).to_csv("lenet_model.csv", index=None)
     
 
 if __name__ == "__main__":

@@ -25,15 +25,16 @@ def get_xy(name):
 def main():
     #get all test images
     imagesTest=[]
-    imagesTestCoord=[]
-    for file in natsorted(glob.glob('Friburgo/Friburgo_Test_ext/*.jpeg')):
+    #imagesTestCoord=[]
+    for file in natsorted(glob.glob('Quorumv/Panoramic_Test/Test_Events_Room/*.bmp')):
         imagesTest.append(cv.imread(file))
-        x,y=get_xy(file)
-        imagesTestCoord.append([x,y])
+        #x,y=get_xy(file)
+        #imagesTestCoord.append([x,y])
 
+    imagesTest=imagesTest[::17]
 
     #get model data from csv files
-    fdTrain=pd.read_csv('BIS_HOG_model.csv', header=0).to_numpy()
+    fdTrain=pd.read_csv('Qevent_HOG_model.csv', header=0).to_numpy()
 
 
     distances=np.zeros((len(imagesTest),len(fdTrain)))
@@ -54,7 +55,7 @@ def main():
             distances[i,j]=dist
 
 
-    pd.DataFrame(distances).to_csv('BIS_hog_descriptor_distances.csv', index=None)
+    pd.DataFrame(distances).to_csv('Qevent_hog_descriptor_distances.csv', index=None)
 
 
 if __name__ == '__main__':
