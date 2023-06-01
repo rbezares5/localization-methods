@@ -26,6 +26,22 @@ def load_cnn_feat_ext():
 
     return model
 
+def calculate_distance(point1, point2):
+    x1, y1 = point1
+    x2, y2 = point2
+    distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+    return distance
+
+def apply_noise(point, noise_distance):
+    # Generate random displacements
+    dx = np.random.normal(0, noise_distance)
+    dy = np.random.normal(0, noise_distance)
+
+    # Apply displacement to the point
+    displaced_point = (point[0] + dx, point[1] + dy)
+
+    return displaced_point
+
 def movement_model2(map,starting_index,u):
 
     #prob=np.zeros(len(map))
@@ -96,6 +112,70 @@ def get_new_bel3(map,starting_index,N,c):
 
     return pdf, indices
 
+def get_new_bel5(map_coords, starting_index, test_point, noise, d1 , d2):
+
+    # Get staring position
+    x_ini=map_coords[starting_index,0]
+    y_ini=map_coords[starting_index,1]
+    print('Starting position: {x} {y}'.format(x=x_ini, y=y_ini))
+
+    # Get destination point from ground truth (test data points)
+    u=test_point
+    print('Ending position (ground truth): {x} {y}'.format(x=u[0], y=u[1]))
+
+
+    # Apply noise to get destination point
+    destination_point=apply_noise(u,noise)
+    print('Ending position (after movement noise): {x} {y}'.format(x=destination_point[0], y=destination_point[1]))
+
+    # Look for close positions in map (restricted to threshold d1)
+    # Initialize lists to store close points and their indices
+    close_points = []
+    close_indices = []
+
+    # Iterate through the points and calculate distances
+    for index, point in enumerate(map_coords):
+        distance = calculate_distance(destination_point, point)
+        if distance <= d1:
+            close_points.append(point)
+            close_indices.append(index)
+
+    # Print the close points and their corresponding indices
+    # print("Close Points:")
+    # for point in close_points:
+    #     print(point)
+
+    # print("Corresponding Indices:")
+    # for index in close_indices:
+    #     print(index)
+
+    # If can't find any, look for some farther positions (threshold d2)
+    # If close_points is empty, repeat the process with d2 threshold
+    if not close_points:
+        for index, point in enumerate(map_coords):
+            distance = calculate_distance(destination_point, point)
+            if distance <= d2:
+                close_points.append(point)
+                close_indices.append(index)
+
+
+    # Calculate distances and generate probability density function
+    pdf = np.zeros(len(map_coords))  # Initialize the pdf array with zeros
+    # Calculate the probabilities based on distances and assign to the PDF array
+    for close_point, index in zip(close_points, close_indices):
+        distance = calculate_distance(destination_point, close_point)
+        probability = 1 / distance
+        pdf[index] = probability
+
+
+    print("Indices:")
+    print(close_indices)
+
+    # print("Probability Density Function:")
+    # print(pdf)
+
+    return pdf, close_indices
+
 def get_new_bel4(model, test_vector, indices):
     pdf_distances = np.zeros(len(model))  # Initialize the pdf_distances array with zeros
 
@@ -112,6 +192,14 @@ def get_new_bel4(model, test_vector, indices):
     return pdf_distances
 
 def main():
+    # PARAMETERS
+    # Adjust window size
+    d1=0.6    # Smaller radius 0.2 | 0.1 | 0.6
+    d2=1    # Bigger Radius 0.6 | 0.3 | 1
+    noise=1  #0.08 | 0.2 | 0.4 | 1
+    experiment=12
+
+
     # Initialize external data for loaclization algorithm
     map_coords=pd.read_csv('map_coordinates.csv', header=0).to_numpy()
     test_coords=pd.read_csv('test_coordinates.csv', header=0).to_numpy()
@@ -129,6 +217,7 @@ def main():
     result[0,:]=bel[:]
     times=[]
     times_full=[]
+    len_indices=[]
 
 
     test_csv = 'friburgo_test_annotations_file.csv'
@@ -141,9 +230,7 @@ def main():
     #Load the feature extractor
     #feature_extractor=load_cnn_feat_ext()
 
-    # Adjust window size
-    d1=1    # Inner window
-    d2=3    # Outer window
+
 
     # Loop through the test dataset and combine bayes filter with CNN predictions
     for i in range(1,len(test_df)):
@@ -155,17 +242,27 @@ def main():
 
         # Prediction step
         print('PREDICTION (movement model)')
-
+        # Get starting position
         likeliest_index=np.argmax(bel)
-        print('Starting position: {idx}'.format(idx=likeliest_index))
+        #print('Starting position: {idx}'.format(idx=likeliest_index))
 
-        #t=1 #number of timestamps between measures, in theory the robot could move 1 index per timestamp
-        #bel=get_new_bel2(map_coords,bel,u=t) 
-        bel,indices = get_new_bel3(bel, likeliest_index, d2, d1)
+        # Get test point
+        x_test=test_coords[i,0]
+        y_test=test_coords[i,1]
+
+        # Get new pdf
+        bel,indices = get_new_bel5(map_coords, likeliest_index, (x_test,y_test), noise, d2, d1)
         #input('wait')
 
-        print("Indices:")
-        print(indices)
+        # In case of localization error after movement, take the previous belief (as if the robot hadn't moved)
+        # Check if the indices list is empty
+        if not indices:
+            # Assign previous values
+            bel[:] = result[i-1,:]
+            indices=previous_indices
+
+        # print("Indices:")
+        # print(indices)
 
         # Correction step
         # Get starting time in each correction step
@@ -188,11 +285,15 @@ def main():
         # Get end time after making all computations
         end_time=time.time()
 
+        previous_indices = indices
+
         # Save result in array and later export to csv
         result[i,:]=bel[:]
         times.append(end_time-start_time)
         times_full.append(end_time-start_time_full)
-        #confidences.append(confidence)
+        len_indices.append(len(indices))
+
+        #print(len_indices)
 
 
         # # Take the same test image and get data from hog offline test
@@ -216,12 +317,12 @@ def main():
     #df = pd.DataFrame(conf_matrix)
     #df.to_csv('alexnet_e100_conf_matrix.csv', index=False, header=False)
 
-    pd.DataFrame(result).to_csv('metodo4.csv', index=None)
+    pd.DataFrame(result).to_csv('metodo3_e{n}.csv'.format(n=experiment), index=None)
 
     #extra_info=np.column_stack((times,confidences))
     #pd.DataFrame(extra_info, columns=['cpu time', 'confidence'],).to_csv('friburgo_hierarchy_extra_info_V2.csv', index=None)
-    extra_info=np.column_stack((times,times_full))
-    pd.DataFrame(extra_info, columns=['cpu time', 'cpu time (full)'],).to_csv('metodo4_extrainfo.csv', index=None)
+    extra_info=np.column_stack((times,times_full,len_indices))
+    pd.DataFrame(extra_info, columns=['cpu time', 'cpu time (full)', 'n of comparisons'],).to_csv('metodo3_extrainfo_e{n}.csv'.format(n=experiment), index=None)
 
 
 if __name__ == "__main__":
